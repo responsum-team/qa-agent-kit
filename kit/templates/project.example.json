@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "project": {
+    "name": "Example Shop",
+    "about": "A web shop: customers browse products and place orders; staff refund them.",
+    "critical": [
+      "A signed-in customer can place an order and sees it in their order list",
+      "A customer never sees another customer's orders",
+      "Only staff can refund an order"
+    ],
+    "notes": "Never trigger a real payment: use the sandbox card the test accounts have. Do not send email to addresses outside example.test."
+  },
+  "placement": "qa-repo",
+  "environment": {
+    "name": "local",
+    "writes": "own-data",
+    "env_file": ".env"
+  },
+  "services": [
+    {
+      "name": "orders",
+      "about": "Orders API (Python, FastAPI) with its own database",
+      "repo": "../shop-orders",
+      "branch": "main",
+      "url_env": "ORDERS_URL",
+      "url": "http://127.0.0.1:8000",
+      "health": "/healthz",
+      "openapi": "/openapi.json",
+      "calls": [],
+      "sources": ["app/**"],
+      "tests": ["tests/**"],
+      "writable": ["tests/**"]
+    },
+    {
+      "name": "web",
+      "about": "Shop front end (TypeScript, React)",
+      "repo": "../shop-web",
+      "branch": "main",
+      "url_env": "WEB_URL",
+      "url": "http://127.0.0.1:3000",
+      "health": "/login",
+      "openapi": null,
+      "calls": ["orders"],
+      "sources": ["src/**"],
+      "tests": ["src/**/*.test.ts", "src/**/*.test.tsx"],
+      "writable": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+    }
+  ],
+  "suites": [
+    {
+      "name": "api",
+      "stack": "pytest",
+      "levels": ["api"],
+      "command": ".venv/bin/python -m pytest --junitxml={junit}",
+      "select": "tests/api",
+      "rerun_failed": ".venv/bin/python -m pytest tests/api --last-failed --last-failed-no-failures none --junitxml={junit}",
+      "setup": ["python3 -m venv .venv", ".venv/bin/python -m pip install -q -r requirements.txt"],
+      "needs": ["orders"]
+    },
+    {
+      "name": "integration",
+      "stack": "pytest",
+      "levels": ["integration"],
+      "command": ".venv/bin/python -m pytest --junitxml={junit}",
+      "select": "tests/integration",
+      "rerun_failed": ".venv/bin/python -m pytest tests/integration --last-failed --last-failed-no-failures none --junitxml={junit}",
+      "setup": ["python3 -m venv .venv", ".venv/bin/python -m pip install -q -r requirements.txt"],
+      "needs": ["orders", "web"]
+    },
+    {
+      "name": "e2e",
+      "stack": "playwright-python",
+      "levels": ["e2e"],
+      "command": ".venv/bin/python -m pytest --junitxml={junit} --output \"$QA_AGENT_RUN_DIR/artifacts\" --tracing retain-on-failure --screenshot only-on-failure",
+      "select": "tests/e2e",
+      "rerun_failed": ".venv/bin/python -m pytest tests/e2e --last-failed --last-failed-no-failures none --junitxml={junit} --output \"$QA_AGENT_RUN_DIR/artifacts-rerun\" --tracing retain-on-failure",
+      "setup": [
+        "python3 -m venv .venv",
+        ".venv/bin/python -m pip install -q -r requirements.txt",
+        ".venv/bin/python -m playwright install chromium"
+      ],
+      "needs": ["orders", "web"],
+      "timeout_minutes": 45
+    },
+    {
+      "name": "app",
+      "stack": "pytest",
+      "levels": ["app"],
+      "command": ".venv/bin/python -m pytest --junitxml={junit}",
+      "select": "tests/app",
+      "rerun_failed": ".venv/bin/python -m pytest tests/app --last-failed --last-failed-no-failures none --junitxml={junit}",
+      "setup": ["python3 -m venv .venv", ".venv/bin/python -m pip install -q -r requirements.txt"],
+      "needs": ["orders"]
+    },
+    {
+      "name": "orders-unit",
+      "stack": "pytest",
+      "levels": ["unit", "component"],
+      "repo": "orders",
+      "command": ".venv/bin/python -m pytest --junitxml={junit}",
+      "select": "tests",
+      "setup": ["python3 -m venv .venv", ".venv/bin/python -m pip install -q -e '.[dev]'"]
+    },
+    {
+      "name": "web-unit",
+      "stack": "vitest-jest",
+      "levels": ["unit", "component"],
+      "repo": "web",
+      "command": "npx vitest run --reporter=default --reporter=junit --outputFile.junit={junit}",
+      "setup": ["npm ci"]
+    }
+  ],
+  "auth": {
+    "about": "QA_USER_* is a customer account; QA_STAFF_* may refund orders. Both exist only in the test environment.",
+    "env": ["QA_USER_EMAIL", "QA_USER_PASSWORD", "QA_STAFF_EMAIL", "QA_STAFF_PASSWORD"],
+    "state_files": [".auth/user.json", ".auth/staff.json"]
+  },
+  "library": "../team-library",
+  "bindings": {
+    "always": ["test-naming", "test-data"],
+    "level": {
+      "api": ["api-testing"],
+      "e2e": ["e2e-testing"]
+    },
+    "task": {
+      "defect": ["defect-reports"]
+    }
+  },
+  "off_limits": ["../shop-existing-tests"],
+  "git": {
+    "branch_prefix": "qa-agent/"
+  },
+  "limits": {
+    "batch": 10
+  }
+}

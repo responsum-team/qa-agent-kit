@@ -1,0 +1,92 @@
+[
+  {
+    "service": "orders",
+    "level": "api",
+    "area": "orders",
+    "surface": "POST /v1/orders",
+    "case": "a signed-in customer sends one valid item",
+    "expect": "201; the body has an id, status 'new' and the item sent; GET /v1/orders/{id} returns the same order",
+    "intent": "OpenAPI: 201 with Order for POST /v1/orders; app/routes/orders.py create_order",
+    "priority": 1,
+    "sources": ["app/routes/orders.py", "app/services/orders.py"]
+  },
+  {
+    "service": "orders",
+    "level": "api",
+    "area": "orders",
+    "surface": "POST /v1/orders",
+    "case": "an empty list of items",
+    "expect": "422 with code EMPTY_CART; the customer's order list is unchanged",
+    "intent": "OpenAPI lists 422; app/services/orders.py raises EmptyCart before anything is stored",
+    "priority": 2,
+    "sources": ["app/services/orders.py"]
+  },
+  {
+    "service": "orders",
+    "level": "api",
+    "area": "orders",
+    "surface": "GET /v1/orders/{id}",
+    "case": "a customer asks for another customer's order",
+    "expect": "404, the same answer as for an order that does not exist",
+    "intent": "app/routes/orders.py get_order filters by owner; docs/security.md: existence of other users' orders is not revealed",
+    "priority": 1,
+    "sources": ["app/routes/orders.py"],
+    "tags": ["permissions"]
+  },
+  {
+    "service": "orders",
+    "level": "unit",
+    "area": "pricing",
+    "surface": "func pricing.total",
+    "case": "lines with different tax rates",
+    "expect": "each line is taxed at its own rate and the result is rounded once, at the end",
+    "intent": "app/pricing.py total(); the docstring states rounding happens on the sum",
+    "priority": 2,
+    "sources": ["app/pricing.py"]
+  },
+  {
+    "service": "system",
+    "level": "integration",
+    "area": "orders",
+    "surface": "web -> orders: order history",
+    "case": "an order placed through the API",
+    "expect": "appears in the web order list of the same customer within 10 seconds, once",
+    "intent": "src/pages/Orders.tsx loads GET /v1/orders for the signed-in user",
+    "priority": 2,
+    "sources": ["web:src/pages/Orders.tsx", "orders:app/routes/orders.py"]
+  },
+  {
+    "service": "web",
+    "level": "e2e",
+    "area": "checkout",
+    "surface": "page /cart",
+    "case": "a signed-in customer places an order for one product",
+    "expect": "the page shows 'Order placed'; after a reload the order is in 'Your orders' with the product's name",
+    "intent": "README: the checkout journey; src/pages/Cart.tsx submit handler",
+    "priority": 1,
+    "sources": ["src/pages/Cart.tsx"]
+  },
+  {
+    "service": "web",
+    "level": "component",
+    "area": "checkout",
+    "surface": "component QuantityField",
+    "case": "the quantity is cleared and the field loses focus",
+    "expect": "an alert with the text 'Enter a quantity' is shown and onChange is not called",
+    "intent": "src/components/QuantityField.tsx validate()",
+    "priority": 3,
+    "sources": ["src/components/QuantityField.tsx"]
+  },
+  {
+    "service": "orders",
+    "level": "app",
+    "area": "nightly export",
+    "surface": "job export-orders",
+    "case": "the export is started twice for the same day",
+    "expect": "the export file holds each order of that day once",
+    "intent": "observed: POST /internal/jobs/export-orders run twice on 2026-01-10 produced no duplicate rows; no document describes it",
+    "priority": 2,
+    "sources": ["app/jobs/export.py"],
+    "tags": ["characterization"]
+  }
+]

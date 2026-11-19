@@ -1,0 +1,18 @@
+[project]
+name = "qa-agent-kit"
+version = "0.1.0"
+description = "A model-agnostic QA agent: playbooks, methods and helper scripts that any coding assistant follows to build and maintain a project's tests."
+requires-python = ">=3.9"
+# The kit itself has no dependencies: kit/ runs on the standard library alone,
+# because it is copied into repositories whose toolchain is unknown.
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.uv]
+package = false
